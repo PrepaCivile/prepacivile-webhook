@@ -2,7 +2,7 @@ const express = require("express");
 const admin = require("firebase-admin");
 const nodemailer = require("nodemailer");
 const bodyParser = require("body-parser");
-require("dotenv").config();
+require('dotenv').config({ path: '/etc/secrets/.env.firebase' });
 
 const app = express();
 app.use(bodyParser.json());
