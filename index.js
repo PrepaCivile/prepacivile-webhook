@@ -9,13 +9,18 @@ const serviceAccount = require("/etc/secrets/.firebaseServiceAccount.json");
 const app = express();
 app.use(bodyParser.json());
 
+// ✅ Route de test GET /
+app.get("/", (req, res) => {
+  res.send("✅ Serveur actif - route GET / OK");
+});
+
 // 🔐 Initialisation Firebase Admin SDK
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
 const db = admin.firestore();
 
-// ✉️ Transport SMTP (ajuste les variables)
+// ✉️ Transport SMTP
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: 587,
@@ -34,7 +39,6 @@ app.post("/api/envoi-code-premium", async (req, res) => {
 
     if (!email) return res.status(400).send("Email manquant.");
 
-    // 🔍 Chercher un code inutilisé
     const snapshot = await db.collection("codesPremium")
       .where("used", "==", false)
       .limit(1)
@@ -45,7 +49,6 @@ app.post("/api/envoi-code-premium", async (req, res) => {
     const doc = snapshot.docs[0];
     const code = doc.data().code;
 
-    // ✅ Marquer le code comme utilisé
     await doc.ref.update({
       used: true,
       usedBy: email,
@@ -53,7 +56,6 @@ app.post("/api/envoi-code-premium", async (req, res) => {
       envoyeLe: new Date().toISOString(),
     });
 
-    // ✉️ Envoyer l'email
     const mailOptions = {
       from: process.env.EMAIL_FROM,
       to: email,
