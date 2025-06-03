@@ -2,18 +2,16 @@ const express = require("express");
 const admin = require("firebase-admin");
 const nodemailer = require("nodemailer");
 const bodyParser = require("body-parser");
-require('dotenv').config({ path: '/etc/secrets/.env.firebase' });
+require("dotenv").config();
+
+const serviceAccount = require("/etc/secrets/.firebaseServiceAccount.json");
 
 const app = express();
 app.use(bodyParser.json());
 
 // 🔐 Initialisation Firebase Admin SDK
 admin.initializeApp({
-  credential: admin.credential.cert({
-    projectId: process.env.FB_PROJECT_ID,
-    clientEmail: process.env.FB_CLIENT_EMAIL,
-    privateKey: process.env.FB_PRIVATE_KEY,
-  }),
+  credential: admin.credential.cert(serviceAccount),
 });
 const db = admin.firestore();
 
