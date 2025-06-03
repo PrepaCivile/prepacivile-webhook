@@ -1,44 +1,60 @@
-const express = require("express");
-const admin = require("firebase-admin");
+// index.js
+
+const express    = require("express");
+const admin      = require("firebase-admin");
 const nodemailer = require("nodemailer");
 const bodyParser = require("body-parser");
 require("dotenv").config();
 
+// Chemin vers le JSON de service account stocké dans /etc/secrets sur Render
 const serviceAccount = require("/etc/secrets/.firebaseServiceAccount.json");
 
 const app = express();
 app.use(bodyParser.json());
 
-// ✅ Route de test GET /
-app.get("/", (req, res) => {
-  res.send("✅ Serveur actif - route GET / OK");
+////////////////////////////////////////////////////////////////////////////////
+// 1) ROUTE GET pour valider l’URL du webhook (ne pas renvoyer d’erreur 400) //
+////////////////////////////////////////////////////////////////////////////////
+app.get("/api/envoi-code-premium", (req, res) => {
+  // WooCommerce envoie une requête GET au moment de l’enregistrement ou de la mise à jour du webhook.
+  // On renvoie simplement 200 OK pour indiquer que l’endpoint est bien actif.
+  return res.status(200).send("Webhook endpoint actif.");
 });
 
-// 🔐 Initialisation Firebase Admin SDK
+//////////////////////////////////////////////////////////////////////////////
+// 2) INITIALISATION DE FIREBASE ADMIN SDK (authentification via JSON file) //
+//////////////////////////////////////////////////////////////////////////////
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
 const db = admin.firestore();
 
-// ✉️ Transport SMTP
+////////////////////////////////////////////////
+// 3) CONFIGURATION DU TRANSPORT SMTP HOSTINGER 
+////////////////////////////////////////////////
+// On passe en SSL sur le port 465 (secure: true)
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: 587,
-  secure: false,
+  host: process.env.SMTP_HOST,   // ex. "smtp.hostinger.com"
+  port: 465,                     // port SSL pour Hostinger
+  secure: true,                  // true = SSL implicite
   auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
+    user: process.env.SMTP_USER, // ex. "team@prepacivile.com"
+    pass: process.env.SMTP_PASS, // ex. "8D:NuLtBpqms"
   },
 });
 
-// 🎯 Route webhook
+///////////////////////////////////////////////////////////
+// 4) ROUTE POST : VRAI WEBHOOK pour ENVOI DU CODE PREMIUM //
+///////////////////////////////////////////////////////////
 app.post("/api/envoi-code-premium", async (req, res) => {
-  // —— LOG 1 : on affiche toujours la payload reçue ——
+  // —— LOG 1 : On affiche toujours la payload reçue ——
   console.log("📥 Payload reçue du webhook :", JSON.stringify(req.body));
 
   try {
     const order = req.body;
     const email = order?.billing?.email;
+
+    // Si on n’a pas d’email dans la payload, on renvoie 400
     if (!email) {
       console.warn("⚠️ Email manquant dans la payload !");
       return res.status(400).send("Email manquant.");
@@ -56,21 +72,21 @@ app.post("/api/envoi-code-premium", async (req, res) => {
       return res.status(404).send("Aucun code disponible.");
     }
 
-    const doc = snapshot.docs[0];
+    const doc  = snapshot.docs[0];
     const code = doc.data().code;
 
     // ✅ On marque ce code comme utilisé
     await doc.ref.update({
-      used: true,
-      usedBy: email,
+      used:        true,
+      usedBy:      email,
       emailEnvoye: true,
-      envoyeLe: new Date().toISOString(),
+      envoyeLe:    new Date().toISOString(),
     });
 
     // ✉️ Préparation du mail
     const mailOptions = {
-      from: process.env.EMAIL_FROM,
-      to: email,
+      from:    process.env.EMAIL_FROM,
+      to:      email,
       subject: "Votre code Premium PrépaCivile+",
       text: `
 Bonjour,
