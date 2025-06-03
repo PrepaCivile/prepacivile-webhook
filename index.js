@@ -33,10 +33,10 @@ const transporter = nodemailer.createTransport({
 
 // 🎯 Route webhook
 app.post("/api/envoi-code-premium", async (req, res) => {
+  console.log("📥 Payload reçue du webhook :", JSON.stringify(req.body));
   try {
     const order = req.body;
     const email = order?.billing?.email;
-
     if (!email) return res.status(400).send("Email manquant.");
 
     const snapshot = await db.collection("codesPremium")
